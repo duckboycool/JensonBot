@@ -20,8 +20,8 @@ module.exports = {
   category: 'Role Requestor',
   commands: [
     {
-      longDescription: 'Create a #role-request text channel for users to interact with' +
-        'AginahBot and request roles. This channel will be used to post role category messages users can click to ' +
+      longDescription: 'Create a #role-request text channel for users to interact with ' +
+        'components to request roles. This channel will be used to post role category messages users can click to ' +
         'to add or remove roles.',
       commandBuilder: new SlashCommandBuilder()
         .setName('role-system-enable')

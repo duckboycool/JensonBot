@@ -310,7 +310,7 @@ module.exports = {
       try{
         leadModRole = await guild.roles.create({
           name: config.leadModRole,
-          reason: `AginahBot requires a ${config.leadModRole} role.`
+          reason: `The bot requires a ${config.leadModRole} role.`
         });
       } catch (err) {
         console.warn(`Unable to create ${config.leadModRole} role for guild ${guild.id} while initializing setup.`);

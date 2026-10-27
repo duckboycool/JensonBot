@@ -45,7 +45,7 @@ module.exports = {
                 deny: [ PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AddReactions ],
               },
               {
-                // @AginahBot may post in this category
+                // @The bot may post in this category
                 id: interaction.client.user.id,
                 allow: [ PermissionsBitField.Flags.SendMessages ],
               },
@@ -64,7 +64,7 @@ module.exports = {
                 deny: [ PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AddReactions ],
               },
               {
-                // @AginahBot may post in this channel
+                // @The bot may post in this channel
                 id: interaction.client.user.id,
                 allow: [ PermissionsBitField.Flags.SendMessages ],
               },
@@ -228,70 +228,66 @@ module.exports = {
         .setContexts(InteractionContextType.Guild)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
       async execute(interaction) {
-        try {
-          if (!await module.exports.modContactEnabled(interaction.guild)) {
-            return interaction.reply({
-              content: 'The mod-contact system is not enabled on this server.',
-              flags: MessageFlags.Ephemeral,
-            });
-          }
-
-          const description = interaction.options.getString('description', true);
-          const channel = interaction.options.getChannel('channel', true);
-
-          let sql = `SELECT mcc.id, mcc.userId
-                     FROM guild_data gd
-                     JOIN mod_contact mc ON gd.id = mc.guildDataId
-                     JOIN mod_contact_channels mcc ON mc.id = mcc.modContactId
-                     WHERE gd.guildId=?
-                       AND mcc.reportChannelId=?`;
-          const modContactExists = await dbQueryOne(sql, [interaction.guild.id, interaction.channel.id]);
-
-          // This does not appear to be a mod-contact channel
-          if (!modContactExists) {
-            return interaction.reply({
-              content: 'This does not appear to be a mod-contact channel.',
-              flags: MessageFlags.Ephemeral,
-            });
-          }
-
-          // Update database to set mod-contact as resolved
-          sql = 'UPDATE mod_contact_channels SET resolved=1, resolutionTime=UNIX_TIMESTAMP() WHERE id=?';
-          await dbExecute(sql, [modContactExists.id]);
-
-          // I don't think any mod contact will go on for over 5000 messages
-          const log = await saveMessageLog(interaction.channel, interaction.id, 5000);
-
-          tmp.file((err, tmpFilePath, fd, cleanupCallback) => {
-            fs.writeFile(tmpFilePath, log, async () => {
-              try {
-                await channel.send({
-                  content: `<@${modContactExists.userId}> (\`${modContactExists.userId}\`) - ${description}`,
-                  files: [
-                    {
-                      name: `${interaction.channel.name}-log.txt`,
-                      attachment: tmpFilePath,
-                    }
-                  ],
-                });
-
-                await interaction.channel.delete();
-              } catch (err) {
-                console.error('Couldn\'t send contact log');
-                console.error(err);
-
-                return interaction.reply({
-                  content: 'Could not save mod contact log to given channel, aborting.',
-                  flags: MessageFlags.Ephemeral,
-                });
-              }
-            });
+        if (!await module.exports.modContactEnabled(interaction.guild)) {
+          return interaction.reply({
+            content: 'The mod-contact system is not enabled on this server.',
+            flags: MessageFlags.Ephemeral,
           });
-        } catch (e) {
-          return interaction.followUp(
-            replyError('Something went wrong and the Mod Contact feature could not be enabled on this server.\n')
-          );
         }
+
+        const description = interaction.options.getString('description', true);
+        const channel = interaction.options.getChannel('channel', true);
+
+        let sql = `SELECT mcc.id, mcc.userId
+                    FROM guild_data gd
+                    JOIN mod_contact mc ON gd.id = mc.guildDataId
+                    JOIN mod_contact_channels mcc ON mc.id = mcc.modContactId
+                    WHERE gd.guildId=?
+                      AND mcc.reportChannelId=?`;
+        const modContactExists = await dbQueryOne(sql, [interaction.guild.id, interaction.channel.id]);
+
+        // This does not appear to be a mod-contact channel
+        if (!modContactExists) {
+          return interaction.reply({
+            content: 'This does not appear to be a mod-contact channel.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        // Update database to set mod-contact as resolved
+        sql = 'UPDATE mod_contact_channels SET resolved=1, resolutionTime=UNIX_TIMESTAMP() WHERE id=?';
+        await dbExecute(sql, [modContactExists.id]);
+
+        // I don't think any mod contact will go on for over 5000 messages
+        const log = await saveMessageLog(interaction.channel, interaction.id, 5000);
+
+        tmp.file((err, tmpFilePath, fd, cleanupCallback) => {
+          fs.writeFile(tmpFilePath, log, async () => {
+            try {
+              await channel.send({
+                content: `<@${modContactExists.userId}> (\`${modContactExists.userId}\`) - ${description}`,
+                files: [
+                  {
+                    name: `${interaction.channel.name}-log.txt`,
+                    attachment: tmpFilePath,
+                  }
+                ],
+              });
+
+              await interaction.channel.delete();
+            } catch (err) {
+              console.error('Couldn\'t send contact log');
+              console.error(err);
+
+              return interaction.followUp({
+                content: 'Could not save mod contact log to given channel, aborting.',
+                flags: MessageFlags.Ephemeral,
+              });
+            }
+          });
+        });
       },
     },
   ],
@@ -400,7 +396,7 @@ module.exports = {
           allow: [ PermissionsBitField.Flags.ViewChannel ],
         },
         {
-          // @AginahBot may view this channel
+          // @The bot may view this channel
           id: interaction.client.user.id,
           allow: [ PermissionsBitField.Flags.ViewChannel ],
         }

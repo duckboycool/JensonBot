@@ -40,7 +40,7 @@ module.exports = {
               allow: [ PermissionsBitField.Flags.ViewChannel ],
             },
             {
-              // @AginahBot may view this channel
+              // @The bot may view this channel
               id: interaction.client.user.id,
               allow: [ PermissionsBitField.Flags.ViewChannel ],
             }
