@@ -1,90 +1,29 @@
-# AginahBot
-A Discord bot designed to make your life as a community manager easier.  
-Find it in use at the [Archipelago Discord](https://discord.gg/B5pjMYy).
+# JensonBot
+This is the bot used for server moderation in the [Archipelago Discord](https://discord.gg/B5pjMYy). It is a fork of
+[AginahBot](https://github.com/LegendaryLinux/AginahBot) with changes made for the Archipelago discord in particular,
+so if you want to use the bot in your own server it may be easier to use/modify AginahBot directly.
 
-[Click here to learn how to add AginahBot to your Discord server!](https://github.com/LegendaryLinux/AginahBot/wiki/Using-AginahBot-on-Your-Discord-Server)
+The bot is open to possible changes, but it would likely be beneficial to gather feedback on ideas in the `#ap-bot-dev`
+channel or a `#general-suggestions` thread in the discord first.
 
-## Current Features
-- Support dynamic voice and text channels, and automatic assignment of permissions on those channels
-- Custom role system to allow users to assign themselves roles
-- A mod-contact feature, which allows users to privately contact your moderation team
-- Event scheduling features for those times when the server-wide event system would not be appropriate
-- Ready check system for users in dynamic game channels
-- Privacy controls for users in dynamic game channels
+## Main Changes from AginahBot
+- A rework of `&tag`s in messages, allowing them to be ignored inside of code blocks, sending them in order of apperance
+in the message, adding cooldowns per tag/channel combo, and adding a tag aliasing system.
+- A new system for maintaining a world listing for an `/apworld-info` command that sends channel and release link.
+- Separated handling for Mod and Lead Mod roles, most importantly allowing regular mods to be able to see the mod
+contacts they open (and for lead mods to choose visibility for regular mods for them).
+- Overhaul of pin permissions into a thread management system, allowing users to change tags, set title, and add perms
+to others. Make thread OPs have perms inherently.
+- A new command to purge members from a thread who haven't sent a message in a certain time, based on
+[the prior script](https://github.com/LegendaryLinux/AginahBot/blob/9081df6efad172ec80bff4dd9c6fc9aea47079f1/scripts/purgeForumThreadUsers.js).
+- An alert pinging mods into a thread when it gets over a certain threshold of members in it.
+- A spam filter based on sending messages quickly in multiple channels (especially with attachments or attempted pings).
+- Auto-logging of mod contacts when resolving them, based on input channel/message in the command.
+- Reworks of existing systems, especially the role requestor.
+- Addition of [ArchipelaBot](https://github.com/LegendaryLinux/ArchipelaBot)'s funcionality, with some fixes/reworks.
 
 # Self-Hosting
 
-## Prerequisites
-- `node` and `npm` should be installed to run the bot and install dependencies
-- A MySQL 8 server should be installed, and a database available.
-
-## Configuration
-A `config.json` file is required to be present in the base directory of the repository. This file should contain
-your Discord bot's secret key, client id, database information, and a name for the Moderator role which
-will be created on servers the bot joins if it does not exist already. 
-
-Example config:
-```json
-{
-  "token": "discord-bot-token",
-  "clientId": "application-client-id",
-  "dbHost": "hostname-of-mysql-server",
-  "dbUser": "database-username",
-  "dbPass": "database-password",
-  "dbName": "database-name",
-  "dbConnectionLimit": 10,
-  "dbRetryMaxAttempts": 3,
-  "dbRetryBaseDelay": 250,
-  "dbRetryMaxDelay": 4000,
-  "dbRetryJitter": 150,
-  "moderatorRole": "Moderator"
-}
-```
-
-If you intend to create your own bot on Discord using the code in this repository, your bot will need
-permissions granted by the permissions integer `293416987728`.
-
-The following permissions will be granted
-to AginahBot:
-- View Channels
-- Manage Channels
-- Manage Roles
-- Manage Emojis and Stickers
-- Send Messages
-- Send Messages in Threads
-- Embed Links
-- Attach Files
-- Add Reactions
-- Mention @everyone, @here, and All Roles
-- Manage Messages
-- Manage Threads
-- Read Message History
-- Move Members
-
-## Setup
-```shell script
-# Clone the repo
-git clone https://github.com/LegendaryLinux/AginahBot
-
-# Enter its directory
-cd AginahBot
-
-# Install required packages
-npm install
-
-# Set up your config.json file
-vim config.json
-
-# Initialize the database
-node dbSetup.js
-
-# Register application (slash) commands
-node scripts/registerSlashCommands.js
-
-# Run the bot
-node bot.js
-```
-
-Note that `dbSetup.js` requires a database user with the `CREATE TABLE` permission, but normal operation requires
-only `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on your target database. It is recommended to use an administrative
-user to configure the database, and a non-admin user with restricted permissions during normal operation.
+The setup to run this version of the bot is nearly the same as base AginahBot. The main differences are that the
+`moderatorRole` config option would instead be `leadModRole` and the permissions integer between all functionality
+of this bot is `4505025841982544`.
