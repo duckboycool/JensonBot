@@ -1,5 +1,5 @@
 const mysql = require('mysql2');
-const config = require('./config.json');
+const config = require('./config_setup.json');
 const { categoryNameMaxLen, categoryDescMaxLen, eventCodeLen, eventTitleMaxLen, tagNameMaxLen, tagContentMaxLen,
   worldNameMaxLen, releaseLinkMaxLen } = require('./lib');
 
