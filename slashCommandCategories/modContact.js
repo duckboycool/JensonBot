@@ -52,9 +52,14 @@ module.exports = {
                 deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
               },
               {
-                // @The bot may post in this category
+                // The bot may post in this category
                 id: interaction.client.user.id,
                 allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
+              },
+              {
+                // The creator needs to be able to see the channel
+                id: interaction.user.id,
+                allow: [ PermissionFlagsBits.ViewChannel ],
               },
             ],
           });
@@ -71,8 +76,13 @@ module.exports = {
                 deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
               },
               {
-                // @The bot may post in this channel
+                // The bot may post in this channel
                 id: interaction.client.user.id,
+                allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
+              },
+              {
+                // The creator needs to be able to see the channel
+                id: interaction.user.id,
                 allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
               },
             ],
@@ -414,7 +424,7 @@ module.exports = {
           allow: [ PermissionFlagsBits.ViewChannel ],
         },
         {
-          // @The bot may view this channel
+          // The bot may view this channel
           id: interaction.client.user.id,
           allow: [ PermissionFlagsBits.ViewChannel ],
         }

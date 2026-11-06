@@ -61,9 +61,13 @@ module.exports = {
               allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
             },
             {
+              id: interaction.user.id,
+              allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
+            },
+            {
               id: interaction.guild.roles.everyone.id,
               deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
-            }
+            },
           ],
         }).then(async (channel) => {
           // Add role system data to the database
