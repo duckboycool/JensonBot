@@ -157,7 +157,7 @@ module.exports = {
   eventCodeLen: 6,
   eventTitleMaxLen: 100,
   tagNameMaxLen: 32,
-  tagContentMaxLen: 1024,
+  tagContentMaxLen: 2000,
   worldNameMaxLen: 255,
   releaseLinkMaxLen: 255,
 
