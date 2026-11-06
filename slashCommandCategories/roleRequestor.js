@@ -1,4 +1,4 @@
-const { parseEmoji, dbQueryOne, dbQueryAll, dbExecute, updateCategoryMessage, replyError, verifyLeadModRole,
+const { parseEmoji, dbQueryOne, dbQueryAll, dbExecute, updateCategoryMessage, replyError, getModRole, verifyLeadModRole,
   categoryNameMaxLen, categoryDescMaxLen } = require('../lib');
 const { ChannelType, SlashCommandBuilder, InteractionContextType, PermissionFlagsBits,
   MessageFlags } = require('discord.js');
@@ -50,6 +50,9 @@ module.exports = {
         }
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        const modRole = getModRole(interaction.guild);
+
         interaction.guild.channels.create({
           name: 'role-request',
           type: ChannelType.GuildText,
@@ -61,7 +64,7 @@ module.exports = {
               allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
             },
             {
-              id: interaction.user.id,
+              id: modRole.id,
               allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
             },
             {

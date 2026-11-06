@@ -36,6 +36,8 @@ module.exports = {
           });
         }
 
+        const modRole = await getModRole(interaction.guild);
+
         // The bot will now make a few requests against the Discord API and write some information to the database.
         // This might take more than five seconds, so we now defer the reply. The followUp will also be ephemeral.
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
@@ -57,8 +59,8 @@ module.exports = {
                 allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
               },
               {
-                // The creator needs to be able to see the channel
-                id: interaction.user.id,
+                // Mods should be able to see this channel during setup
+                id: modRole.id,
                 allow: [ PermissionFlagsBits.ViewChannel ],
               },
             ],
@@ -81,8 +83,8 @@ module.exports = {
                 allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
               },
               {
-                // The creator needs to be able to see the channel
-                id: interaction.user.id,
+                // Mods should be able to see this channel during setup
+                id: modRole.id,
                 allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
               },
             ],
@@ -96,7 +98,6 @@ module.exports = {
           );
 
           const leadModRole = await getLeadModRole(interaction.guild);
-          const modRole = await getModRole(interaction.guild);
 
           let message = 'If you need to contact the moderators, simply click the button below. A private channel ' +
             `visible only to you and the ${leadModRole} team will be created. Your conversation will be confidential`;
