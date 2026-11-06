@@ -26,4 +26,4 @@ to others. Make thread OPs have perms inherently.
 
 The setup to run this version of the bot is nearly the same as base AginahBot. The main differences are that the
 `moderatorRole` config option would instead be `leadModRole` and the permissions integer between all functionality
-of this bot is `4505025841982544`.
+of this bot is `6756825655667792`.
