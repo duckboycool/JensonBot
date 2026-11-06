@@ -51,7 +51,7 @@ module.exports = {
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-        const modRole = getModRole(interaction.guild);
+        const modRole = await getModRole(interaction.guild);
 
         interaction.guild.channels.create({
           name: 'role-request',

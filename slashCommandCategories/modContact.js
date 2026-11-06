@@ -71,23 +71,6 @@ module.exports = {
             type: ChannelType.GuildText,
             topic: 'Privately contact the moderator team.',
             parent: category.id,
-            permissionOverwrites: [
-              {
-                // @everyone may not send messages or add reactions, and temporarily may not view for setup
-                id: interaction.guildId,
-                deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
-              },
-              {
-                // The bot may post in this channel
-                id: interaction.client.user.id,
-                allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
-              },
-              {
-                // Mods should be able to see this channel during setup
-                id: modRole.id,
-                allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
-              },
-            ],
           });
 
           const buttonRow = new ActionRowBuilder().addComponents(
