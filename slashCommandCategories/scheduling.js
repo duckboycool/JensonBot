@@ -932,7 +932,7 @@ module.exports = {
           .setDescription('True to enable, False to disable')
           .setRequired(true))
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageThreads),
       async execute(interaction) {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const toggle = interaction.options.getBoolean('toggle', true);

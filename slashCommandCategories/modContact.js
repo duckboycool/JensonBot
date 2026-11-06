@@ -2,8 +2,8 @@ const { dbQueryOne, dbExecute, getLeadModRole, getModRole, replyError, saveMessa
   verifyLeadModRole } = require('../lib');
 const tmp = require('tmp');
 const fs = require('fs');
-const { ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, ActionRowBuilder, SlashCommandBuilder,
-  InteractionContextType, MessageFlags, PermissionFlagsBits, Guild, GuildMember, TextChannel } = require('discord.js');
+const { ButtonBuilder, ButtonStyle, ChannelType, ActionRowBuilder, SlashCommandBuilder, InteractionContextType,
+  MessageFlags, PermissionFlagsBits, Guild, GuildMember, TextChannel } = require('discord.js');
 
 module.exports = {
   category: 'Mod Contact',
@@ -15,8 +15,15 @@ module.exports = {
         .setName('mod-contact-enable')
         .setDescription('Enable the Mod Contact feature in this server.')
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
       async execute(interaction) {
+        if (!await verifyLeadModRole(interaction.member)) {
+          return interaction.reply({
+            content: 'Mod contact can only be edited by lead mods.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         // Fetch guild data
         const guildData = await dbQueryOne('SELECT id FROM guild_data WHERE guildId=?', interaction.guildId);
 
@@ -40,14 +47,14 @@ module.exports = {
             type: ChannelType.GuildCategory,
             permissionOverwrites: [
               {
-                // @everyone may not send messages or add reactions
+                // @everyone may not send messages or add reactions, and temporarily may not view for setup
                 id: interaction.guildId,
-                deny: [ PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AddReactions ],
+                deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
               },
               {
                 // @The bot may post in this category
                 id: interaction.client.user.id,
-                allow: [ PermissionsBitField.Flags.SendMessages ],
+                allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
               },
             ],
           });
@@ -59,14 +66,14 @@ module.exports = {
             parent: category.id,
             permissionOverwrites: [
               {
-                // @everyone may not send messages or add reactions
+                // @everyone may not send messages or add reactions, and temporarily may not view for setup
                 id: interaction.guildId,
-                deny: [ PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AddReactions ],
+                deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
               },
               {
                 // @The bot may post in this channel
                 id: interaction.client.user.id,
-                allow: [ PermissionsBitField.Flags.SendMessages ],
+                allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
               },
             ],
           });
@@ -100,9 +107,11 @@ module.exports = {
           await dbExecute(sql, [ guildData.id, category.id, channel.id, contactMessage.id ]);
           return interaction.followUp('Mod contact feature enabled on this server.');
         } catch (e) {
-          return interaction.followUp(
-            replyError('Something went wrong and the Mod Contact feature could not be enabled on this server.\n')
+          const message = replyError(
+            'Something went wrong and the Mod Contact feature could not be enabled on this server.\n'
           );
+          console.error(e);
+          return interaction.followUp(message);
         }
       },
     },
@@ -113,8 +122,15 @@ module.exports = {
         .setName('mod-contact-disable')
         .setDescription('Remove the Mod Contact feature from this server.')
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
       async execute(interaction) {
+        if (!await verifyLeadModRole(interaction.member)) {
+          return interaction.reply({
+            content: 'Message history can only be edited by lead mods.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         // Fetch information about this guild's mod-contact feature
         let sql = `SELECT mc.id, mc.categoryId
                    FROM mod_contact mc
@@ -130,7 +146,7 @@ module.exports = {
           });
         }
 
-        try{
+        try {
           // This might take a few seconds
           await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
@@ -145,9 +161,11 @@ module.exports = {
           await dbExecute('DELETE FROM mod_contact WHERE id=?', [ modContact.id ]);
           return interaction.followUp('Mod contact feature disabled on this server.');
         } catch (e) {
-          return interaction.followUp(
-            replyError('Something went wrong and the Mod Contact feature could not be enabled on this server.\n')
+          const message = replyError(
+            'Something went wrong and the Mod Contact feature could not be disabled on this server.\n'
           );
+          console.error(e);
+          return interaction.followUp(message);
         }
       },
     },
@@ -383,22 +401,22 @@ module.exports = {
         {
           // @everyone may not view this channel
           id: interaction.guild.id,
-          deny: [ PermissionsBitField.Flags.ViewChannel ],
+          deny: [ PermissionFlagsBits.ViewChannel ],
         },
         {
           // Moderators may view this channel
           id: moderatorRole.id,
-          allow: [ PermissionsBitField.Flags.ViewChannel ],
+          allow: [ PermissionFlagsBits.ViewChannel ],
         },
         {
           // The target user may view this channel
           id: guildMember.id,
-          allow: [ PermissionsBitField.Flags.ViewChannel ],
+          allow: [ PermissionFlagsBits.ViewChannel ],
         },
         {
           // @The bot may view this channel
           id: interaction.client.user.id,
-          allow: [ PermissionsBitField.Flags.ViewChannel ],
+          allow: [ PermissionFlagsBits.ViewChannel ],
         }
       ],
     });

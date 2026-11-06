@@ -1,6 +1,6 @@
-const { parseEmoji, dbQueryOne, dbQueryAll, dbExecute, updateCategoryMessage, replyError,
+const { parseEmoji, dbQueryOne, dbQueryAll, dbExecute, updateCategoryMessage, replyError, verifyLeadModRole,
   categoryNameMaxLen, categoryDescMaxLen } = require('../lib');
-const { ChannelType, PermissionsBitField, SlashCommandBuilder, InteractionContextType, PermissionFlagsBits,
+const { ChannelType, SlashCommandBuilder, InteractionContextType, PermissionFlagsBits,
   MessageFlags } = require('discord.js');
 
 const autocompleteCategory = async (interaction, name = 'category-name') => {
@@ -27,8 +27,15 @@ module.exports = {
         .setName('role-system-enable')
         .setDescription('Enable the role system on this server.')
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
       async execute(interaction) {
+        if (!await verifyLeadModRole(interaction.member)) {
+          return interaction.reply({
+            content: 'Role request channel can only be edited by lead mods.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         let sql = `SELECT gd.id AS guildDataId, rs.id AS roleSystemId
                     FROM guild_data gd
                     LEFT JOIN role_systems rs ON gd.id = rs.guildDataId
@@ -51,11 +58,11 @@ module.exports = {
           permissionOverwrites: [
             {
               id: interaction.client.user.id,
-              allow: [ PermissionsBitField.Flags.SendMessages ],
+              allow: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel ],
             },
             {
               id: interaction.guild.roles.everyone.id,
-              deny: [ PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.AddReactions ],
+              deny: [ PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ViewChannel ],
             }
           ],
         }).then(async (channel) => {
@@ -80,8 +87,15 @@ module.exports = {
         .setName('role-system-disable')
         .setDescription('Disable the role request system in this server. Keeps the channel, but it cannot be used again.')
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
       async execute(interaction) {
+        if (!await verifyLeadModRole(interaction.member)) {
+          return interaction.reply({
+            content: 'Role request channel can only be edited by lead mods.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         let sql = `SELECT rs.id FROM role_systems rs
                     JOIN guild_data gd ON rs.guildDataId = gd.id
                     WHERE gd.guildId=?`;

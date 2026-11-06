@@ -1,7 +1,8 @@
 const { SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionFlagsBits } = require('discord.js');
 const tmp = require('tmp');
 const fs = require('fs');
-const { dbExecute, dbQueryOne, managesThread, replyError, saveMessageLog, verifyModRole } = require('../lib');
+const { dbExecute, dbQueryOne, managesThread, replyError, saveMessageLog, verifyModRole,
+  verifyLeadModRole } = require('../lib');
 
 module.exports = {
   category: 'Utility Commands',
@@ -156,8 +157,15 @@ module.exports = {
           .setDescription('New moderator role')
           .setRequired(true))
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
       async execute(interaction) {
+        if (!await verifyLeadModRole(interaction.member)) {
+          return interaction.reply({
+            content: 'Moderator roles can only be edited by lead mods.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         const role = interaction.options.getRole('role', true);
         await dbExecute('UPDATE guild_data SET moderatorRoleId=? WHERE guildId=?', [role.id, interaction.guildId]);
         return interaction.reply({
@@ -175,8 +183,15 @@ module.exports = {
           .setDescription('New lead moderator role')
           .setRequired(true))
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),
       async execute(interaction) {
+        if (!await verifyLeadModRole(interaction.member)) {
+          return interaction.reply({
+            content: 'Moderator roles can only be edited by lead mods.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         const role = interaction.options.getRole('role', true);
         await dbExecute('UPDATE guild_data SET leadModRoleId=? WHERE guildId=?', [role.id, interaction.guildId]);
         return interaction.reply({

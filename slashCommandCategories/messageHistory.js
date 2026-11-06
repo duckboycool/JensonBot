@@ -1,98 +1,42 @@
-const { dbQueryOne, dbExecute, getLeadModRole } = require('../lib');
-const { SlashCommandBuilder, MessageFlags, InteractionContextType, ChannelType, PermissionsBitField } = require('discord.js');
+const { dbQueryOne, dbExecute, verifyLeadModRole } = require('../lib');
+const { SlashCommandBuilder, MessageFlags, InteractionContextType, PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
   category: 'Message History',
   commands: [
     {
       commandBuilder: new SlashCommandBuilder()
-        .setName('message-history-enable')
-        .setDescription('Create a channel to log edited and deleted messages.')
+        .setName('set-message-history')
+        .setDescription('Set channel to log edited and deleted messages.')
+        .addChannelOption((opt) => opt
+          .setName('channel')
+          .setDescription('Channel to set as message history channel')
+          .setRequired(true))
         .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
       async execute(interaction) {
-        let sql = `SELECT go.id, go.messageHistoryChannelId
-                   FROM guild_options go
-                   JOIN guild_data gd ON go.guildDataId = gd.id
-                   WHERE gd.guildId=?`;
-        const options = await dbQueryOne(sql, [interaction.guild.id]);
-        if (options?.messageHistoryChannelId) {
+        if (!await verifyLeadModRole(interaction.member)) {
           return interaction.reply({
-            content: `Message history is already enabled for this guild in <#${options.messageHistoryChannelId}>.`,
+            content: 'Message history can only be edited by lead mods.',
             flags: MessageFlags.Ephemeral,
           });
         }
 
-        await interaction.deferReply({flags: MessageFlags.Ephemeral});
-        const leadModRole = await getLeadModRole(interaction.guild);
-        const messageHistoryChannel = await interaction.guild.channels.create({
-          name: 'message-history',
-          type: ChannelType.GuildText,
-          permissionOverwrites: [
-            {
-              // @everyone may not view this channel
-              id: interaction.guild.id,
-              deny: [ PermissionsBitField.Flags.ViewChannel ],
-            },
-            {
-              // Lead moderators may view this channel
-              id: leadModRole.id,
-              allow: [ PermissionsBitField.Flags.ViewChannel ],
-            },
-            {
-              // @The bot may view this channel
-              id: interaction.client.user.id,
-              allow: [ PermissionsBitField.Flags.ViewChannel ],
-            }
-          ]
-        });
+        const channel = interaction.options.getChannel('channel', true);
 
-        await dbExecute(
-          'UPDATE guild_options SET messageHistoryChannelId=? WHERE id=?',
-          [messageHistoryChannel.id, options.id]
-        );
+        const sql = `SELECT go.id
+                     FROM guild_options go
+                     JOIN guild_data gd ON go.guildDataId = gd.id
+                     WHERE gd.guildId=?`;
+        const options = await dbQueryOne(sql, [interaction.guild.id]);
 
-        return interaction.followUp({
-          content: `${messageHistoryChannel} has been created.`,
+        await dbExecute('UPDATE guild_options SET messageHistoryChannelId=? WHERE id=?', [channel.id, options.id]);
+
+        return interaction.reply({
+          content: `Message history channel has been set to ${channel}.`,
           flags: MessageFlags.Ephemeral,
         });
       }
     },
-    {
-      commandBuilder: new SlashCommandBuilder()
-        .setName('message-history-disable')
-        .setDescription('Delete an existing message history channel.')
-        .setContexts(InteractionContextType.Guild)
-        .setDefaultMemberPermissions(0),
-      async execute(interaction) {
-        let sql = `SELECT go.id, go.messageHistoryChannelId
-                   FROM guild_options go
-                   JOIN guild_data gd ON go.guildDataId = gd.id
-                   WHERE gd.guildId=?`;
-        const options = await dbQueryOne(sql, [interaction.guild.id]);
-        if (!options?.messageHistoryChannelId) {
-          return interaction.reply({
-            content: 'Message history is not enabled for this guild.',
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
-        await interaction.deferReply({flags: MessageFlags.Ephemeral});
-
-        // Delete the message history channel
-        await interaction.guild.channels.delete(options.messageHistoryChannelId);
-
-        // Clean up database
-        await dbExecute(
-          'UPDATE guild_options SET messageHistoryChannelId=NULL WHERE id=?',
-          [options.id],
-        );
-
-        return interaction.followUp({
-          content: 'Message history channel deleted.',
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-    }
   ],
 };
