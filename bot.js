@@ -4,6 +4,7 @@ const { generalErrorHandler } = require('./errorHandlers');
 const { handleGuildCreate, handleGuildDelete, verifyGuildSetups, cachePartial,
   updateScheduleBoards } = require('./lib');
 const fs = require('fs');
+require('log-timestamp');
 
 // Catch all unhandled errors
 process.on('uncaughtException', (err) => generalErrorHandler(err));
