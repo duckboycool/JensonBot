@@ -57,14 +57,17 @@ module.exports = async (client, oldState, newState) => {
         [readySystem.id, oldState.member.id]
       );
 
-      try{
+      try {
         await oldState.channel.send({
           content: `${oldState.member} has left the game.`,
           allowedMentions: {},
         });
       } catch (err) {
-        console.error('Unable to send message to voice channel.');
-        console.error(err);
+        // Skip logging Unknown Channel, for when it was the last user and it's already deleted
+        if (err.code !== 10003) {
+          console.error('Unable to send message to voice channel.');
+          console.error(err);
+        }
       }
     }
   }
