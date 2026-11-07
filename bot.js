@@ -103,8 +103,8 @@ client.on(Events.MessageCreate, async (msg) => {
   // Fetch message if partial
   const message = await cachePartial(msg);
 
-  // Ignore all bot messages
-  if (message.author.bot) { return; }
+  // Ignore bot messages or DMs
+  if (message.author.bot || !message.inGuild()) { return; }
 
   // Run the message through the message listeners
   return client.messageListeners.forEach((listener) => listener(client, message));
@@ -115,14 +115,17 @@ client.on(Events.MessageUpdate, async (oldMsg, newMsg) => {
   const oldMessage = await cachePartial(oldMsg);
   const newMessage = await cachePartial(newMsg);
 
-  // Ignore bot messages
-  if (newMessage.author.bot) { return; }
+  // Ignore bot messages or DMs
+  if (newMessage.author.bot || !newMessage.inGuild()) { return; }
 
   // Run the message through the messageUpdated listeners
   return client.messageUpdatedListeners.forEach((listener) => listener(client, oldMessage, newMessage));
 });
 
 client.on(Events.MessageDelete, async (msg) => {
+  // Ignore DMs
+  if (!msg.inGuild()) { return; }
+
   // Run the message through the message delete listeners
   return client.messageDeletedListeners.forEach((listener) => listener(client, msg));
 });
