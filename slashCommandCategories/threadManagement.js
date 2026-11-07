@@ -39,22 +39,24 @@ module.exports = {
           });
         }
 
+        const sql = 'SELECT 1 FROM thread_management WHERE channelId=? AND userId=?';
+        const alreadyManages = await dbQueryOne(sql, [interaction.channelId, user.id]);
+        if (alreadyManages) {
+          return interaction.reply({
+            content: 'Specified user already has permissions.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         try {
-          await dbExecute('INSERT INTO thread_management (guildDataId, channelId, userId) VALUES (?, ?, ?)', [
-            guildData.id, interaction.channelId, user.id
-          ]);
+          await dbExecute('INSERT INTO thread_management (guildDataId, channelId, userId) VALUES (?, ?, ?)',
+            [guildData.id, interaction.channelId, user.id]
+          );
         } catch (err) {
-          if (err.code === 'ER_DUP_ENTRY') {
-            return interaction.reply({
-              content: 'Specified user already has permissions.',
-              flags: MessageFlags.Ephemeral,
-            });
-          } else {
-            return interaction.reply({
-              content: 'Error adding permissions.',
-              flags: MessageFlags.Ephemeral,
-            });
-          }
+          return interaction.reply({
+            content: 'Error adding permissions.',
+            flags: MessageFlags.Ephemeral,
+          });
         }
 
         let grantMessage = `${user}, you have been granted management perms in this channel. You can use \`/pin\` `
@@ -68,11 +70,7 @@ module.exports = {
         }
         grantMessage += 'and `/thread-grant-perms` to give others these permissions.';
 
-        await interaction.channel.send(grantMessage);
-        return interaction.reply({
-          content: 'Permission granted.',
-          flags: MessageFlags.Ephemeral,
-        });
+        return interaction.reply(grantMessage);
       },
     },
     {
