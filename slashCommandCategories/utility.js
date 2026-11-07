@@ -63,6 +63,7 @@ module.exports = {
         .addIntegerOption((opt) => opt
           .setName('days')
           .setDescription('Number of days of inactivity for cutoff. Min 1, default 60')
+          .setMinValue(1)
           .setRequired(false))
         .addBooleanOption((opt) => opt
           .setName('dry-run')
@@ -89,13 +90,6 @@ module.exports = {
           });
         }
 
-        if (days < 1) {
-          return interaction.reply({
-            content: 'Invalid activity cutoff.',
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
         if (!interaction.channel.isThread()) {
           return interaction.reply({
             content: 'Cannot purge non-thread channel.',
@@ -110,12 +104,12 @@ module.exports = {
 
         try {
           const targetDate = Math.floor(Date.now() - (days * 24 * 60 * 60 * 1000));
-          console.info(`\nFetching messages since ${new Date(targetDate).toISOString()}`);
+          console.info(`Fetching messages since ${new Date(targetDate).toISOString()}`);
           const messages = await fetchMessagesSince(interaction.channel, targetDate);
           console.info(`Found ${messages.length} messages total`);
 
           // Fetch full user list for thread
-          console.info('\nFetching thread members');
+          console.info('Fetching thread members');
           const threadMembers = await fetchThreadMembers(interaction.channel);
           console.debug(`Found ${threadMembers.length} members`);
 
@@ -124,7 +118,7 @@ module.exports = {
           messages.forEach((msg) => {
             activeUsers.add(msg.author.id);
           });
-          console.debug(`\n${activeUsers.size} unique users have sent messages in given period`);
+          console.debug(`${activeUsers.size} unique users have sent messages in given period`);
 
           // Remove thread members who have not sent a message in specified time
           console.info('Purging inactive members...');
