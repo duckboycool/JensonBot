@@ -180,7 +180,7 @@ module.exports = {
         });
 
         const unreadyPlayers = await dbQueryOne(
-          'SELECT 1 FROM ready_checks WHERE readySystemId=? AND NOT isReady',
+          'SELECT 1 FROM ready_checks WHERE readySystemId=? AND NOT isReady LIMIT 1',
           [readySystem.id],
         );
 
