@@ -1,5 +1,5 @@
 // No easy way to get this directly from the messageListener
-const period = 10_000;
+const period = 15_000;
 
 module.exports = (client) => {
   const curTime = Date.now();

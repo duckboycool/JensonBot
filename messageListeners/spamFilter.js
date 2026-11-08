@@ -1,8 +1,8 @@
 const { MessageMentions, PermissionFlagsBits, messageLink } = require('discord.js');
 const { dbQueryOne } = require('../lib.js');
 
-const period = 10_000; // ms window for meeting threshold
-const threshold = 10; // Number of points needed to activate
+const period = 15_000; // ms window for meeting threshold
+const threshold = 12; // Number of points needed to activate
 
 const spamPoints = (messageList) => {
   const channelIds = new Set(messageList.map((message) => message.channelId));
@@ -32,7 +32,7 @@ module.exports = async (client, message) => {
     await message.delete();
     return;
   }
-  
+
   let recent = client.recentMessages.get(message.author.id);
   if (recent == null) {
     client.recentMessages.set(message.author.id, [message]);
