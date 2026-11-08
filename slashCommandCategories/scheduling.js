@@ -211,7 +211,9 @@ const createEvent = async (interaction, time) => {
     await sendScheduleMessage(interaction, targetDate, title, pingRole, duration);
     return interaction.followUp('New event created.');
   } catch (e) {
-    return interaction.followUp(replyError('Something went wrong and the event could not be created.\n'));
+    const message = replyError('Something went wrong and the event could not be created. ');
+    console.error(e);
+    return interaction.followUp(message);
   }
 };
 
@@ -333,8 +335,10 @@ module.exports = {
               );
             await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
           }
-        } catch(e) {
-          return interaction.followUp(replyError('Something went wrong and the scheduled events could not be listed.\n'));
+        } catch (e) {
+          const message = replyError('Something went wrong and the scheduled events could not be listed. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       }
     },
@@ -789,8 +793,10 @@ module.exports = {
 
           await updateScheduleBoards(interaction.client, interaction.guild);
           return interaction.followUp(`Event with code ${eventCode.toUpperCase()} has been cancelled.`);
-        } catch(e) {
-          return interaction.followUp(replyError('Something went wrong and the event could not be cancelled.\n'));
+        } catch (e) {
+          const message = replyError('Something went wrong and the event could not be cancelled. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       },
       autocomplete: autocompleteCode
@@ -870,7 +876,9 @@ module.exports = {
           await updateScheduleBoards(interaction.client, interaction.guild);
           return interaction.followUp('Schedule board created.');
         } catch (e) {
-          return interaction.followUp(replyError('Something went wrong and the schedule board could not be created.\n'));
+          const message = replyError('Something went wrong and the schedule board could not be created. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       }
     },
@@ -919,7 +927,9 @@ module.exports = {
           await dbExecute('DELETE FROM schedule_boards WHERE id=?', [existingBoard.id]);
           return interaction.followUp('Schedule board deleted.');
         } catch (e) {
-          return interaction.followUp(replyError('Something went wrong and the schedule board could not be deleted.\n'));
+          const message = replyError('Something went wrong and the schedule board could not be deleted. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       }
     },

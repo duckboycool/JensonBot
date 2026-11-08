@@ -52,7 +52,9 @@ module.exports = {
             });
           });
         } catch (e) {
-          return interaction.followUp(replyError('Something went wrong and the channel logs could not be saved.\n'));
+          const message = replyError('Something went wrong and the channel logs could not be saved. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       }
     },
@@ -135,7 +137,9 @@ module.exports = {
             }
           }
         } catch (e) {
-          return interaction.followUp(replyError('Something went wrong and the thread could not be purged.\n'));
+          const message = replyError('Something went wrong and the thread could not be purged. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
 
         console.info(`Purged ${totalPurgedMembers} users`);

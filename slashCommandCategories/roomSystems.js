@@ -53,7 +53,9 @@ module.exports = {
           await dbExecute(sql, [guildData.id, category.id, voiceChannel.id]);
           return interaction.followUp(`Created room system ${categoryName}.`);
         } catch (e) {
-          return interaction.followUp(replyError('Something went wrong and the room system could not be created.\n'));
+          const message = replyError('Something went wrong and the room system could not be created. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       }
     },
@@ -108,7 +110,9 @@ module.exports = {
           await dbExecute('DELETE FROM room_systems WHERE id=?', [row.id]);
           return interaction.followUp(`Destroyed dynamic room system ${categoryName}.`);
         } catch (e) {
-          return interaction.followUp(replyError('Something went wrong and the room system could not be deleted.\n'));
+          const message = replyError('Something went wrong and the room system could not be deleted. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       }
     },

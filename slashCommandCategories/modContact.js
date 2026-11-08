@@ -218,9 +218,9 @@ module.exports = {
           });
 
         } catch (e) {
-          return interaction.followUp(
-            replyError('Something went wrong and the Mod Contact feature could not be enabled on this server.\n')
-          );
+          const message = replyError('Something went wrong and Mod Contact could not be opened. ');
+          console.error(e);
+          return interaction.followUp(message);
         }
       },
     },
