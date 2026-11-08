@@ -1,5 +1,5 @@
 const { dbExecute, dbQueryOne, managesThread, dbQueryAll, replyError, verifyModRole } = require('../lib');
-const { SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionsBitField,
+const { SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionsBitField, ChannelFlags,
   PermissionFlagsBits } = require('discord.js');
 
 module.exports = {
@@ -437,6 +437,13 @@ module.exports = {
         if (!channelTags.includes(tag.id)) {
           return interaction.reply({
             content: `Tag \`${tag.name}\` not on post.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
+        if (interaction.channel.parent?.flags?.has(ChannelFlags.RequireTag) && channelTags.length === 1) {
+          return interaction.reply({
+            content: 'Cannot remove only current tag as the forum requires a tag.',
             flags: MessageFlags.Ephemeral,
           });
         }
