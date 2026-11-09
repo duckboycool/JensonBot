@@ -153,7 +153,7 @@ const apworldInfo = `CREATE TABLE IF NOT EXISTS apworld_info (
     channelId VARCHAR(64) NOT NULL
 )`;
 
-const apworldAlaises = `CREATE TABLE IF NOT EXISTS apworld_aliases (
+const apworldAliases = `CREATE TABLE IF NOT EXISTS apworld_aliases (
     id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     worldId BIGINT NOT NULL,
     alias VARCHAR(${worldNameMaxLen}) NOT NULL
@@ -206,7 +206,7 @@ db.query(alertedThreads, handler);
 db.query(pinnedForumPosts, handler);
 db.query(scheduleBoards, handler);
 db.query(apworldInfo, handler);
-db.query(apworldAlaises, handler);
+db.query(apworldAliases, handler);
 db.query(readySystems, handler);
 db.query(readyChecks, handler);
 db.end();

@@ -59,6 +59,13 @@ module.exports = {
           });
         }
 
+        if (interaction.channel?.ownerId === user.id) {
+          return interaction.reply({
+            content: 'Added user in DB, but thread OPs already have management permissions.',
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+
         let grantMessage = `${user}, you have been granted management perms in this channel. You can use \`/pin\` `
                          + 'and `/unpin` to manage pins, ';
         // In forum channel

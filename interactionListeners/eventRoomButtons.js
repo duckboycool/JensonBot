@@ -168,7 +168,6 @@ module.exports = async (client, interaction) => {
       }
 
       const newOwner = await interaction.guild.members.fetch(commandParts[2]);
-      console.log(newOwner.id);
 
       // Set new room owner in DB
       await dbExecute(
