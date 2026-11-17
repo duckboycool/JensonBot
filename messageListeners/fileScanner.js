@@ -148,21 +148,21 @@ module.exports = async (client, message) => {
                  WHERE gd.guildId=?`;
     const options = await dbQueryOne(sql, [message.guild.id]);
 
-    const romFileNames = [];
+    let romFileMessage = '';
     message.attachments.each((attachment) => {
       // Disallow direct posting of ROM files
       if (isRomFile(attachment.name)) {
-        romFileNames.push(attachment.name);
+        romFileMessage += `\n- \`${attachment.name}\``;
       }
     });
 
-    if (romFileNames.length > 0) {
+    if (romFileMessage.length > 0) {
       const moderator = await getModRole(message.guild) ?? await getLeadModRole(message.guild);
 
       await message.channel.send({
         content: `${message.author}: Do not post links to ROM files or other copyrighted content.\n` +
           `The ${moderator} team has been alerted to this incident.\n` +
-          `The potentially problematic file(s) in question were:\n- ${romFileNames.join('\n- ')}`
+          `The potentially problematic file(s) in question were:${romFileMessage}`
       });
 
       await message.delete();
@@ -171,7 +171,7 @@ module.exports = async (client, message) => {
         const alertsChannel = await message.guild.channels.fetch(options.alertsChannelId);
         await alertsChannel.send({
           content: `${message.author} has just posted a potentially pirated file ` +
-            `in ${message.channel}.\n**Problem files:**\n- ${romFileNames.join('\n- ')}`
+            `in ${message.channel}.\n**Problem files:**${romFileMessage}`
         });
       }
     }
