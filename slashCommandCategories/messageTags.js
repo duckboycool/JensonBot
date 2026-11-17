@@ -71,7 +71,8 @@ module.exports = {
         }
 
         // Save new tag to database
-        sql = `REPLACE INTO message_tags (guildDataId, tagName, tagContent, createdByUserId) VALUES (?, ?, ?, ?)`;
+        sql = `INSERT message_tags (guildDataId, tagName, tagContent, createdByUserId) VALUES (?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE tagContent = VALUES(tagContent), createdByUserId = VALUES(createdByUserId)`;
         await dbExecute(sql, [guildData.id, tagName, content, interaction.user.id]);
 
         return interaction.reply({
