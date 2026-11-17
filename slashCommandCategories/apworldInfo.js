@@ -8,12 +8,10 @@ const autocompleteWorld = async (interaction) => {
     return interaction.respond([]);
   }
 
-  // Probably a better way to perform this search
   const sql = `SELECT DISTINCT worldName FROM apworld_info info
     LEFT JOIN apworld_aliases aliases ON info.id=aliases.worldId
-    WHERE worldName LIKE CONCAT('%', ?, '%') OR alias LIKE CONCAT('%', ?, '%') LIMIT 25`;
-  const escapedVal = curValue.replaceAll(/([%_[])/g, '[$1]');
-  const matches = await dbQueryAll(sql, [escapedVal, escapedVal]);
+    WHERE LOCATE(?, worldName) OR LOCATE(?, alias) LIMIT 25`;
+  const matches = await dbQueryAll(sql, [curValue, curValue]);
 
   return interaction.respond(matches.map((world) => ({ name: world.worldName, value: world.worldName })));
 };
@@ -288,10 +286,9 @@ module.exports = {
           return interaction.respond([]);
         }
 
-        const sql = `SELECT alias FROM apworld_aliases WHERE worldId=? AND alias LIKE CONCAT('%', ?, '%') LIMIT 25`;
-        const escapedVal = field.value.replaceAll(/([%_[])/g, '[$1]');
+        const sql = `SELECT alias FROM apworld_aliases WHERE worldId=? AND LOCATE(?, alias) LIMIT 25`;
+        const matches = await dbQueryAll(sql, [match.id, field.value]);
 
-        const matches = await dbQueryAll(sql, [match.id, escapedVal]);
         return interaction.respond(matches.map((match) => ({ name: match.alias, value: match.alias })));
       },
     },

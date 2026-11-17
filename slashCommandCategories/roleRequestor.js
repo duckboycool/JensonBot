@@ -9,9 +9,8 @@ const autocompleteCategory = async (interaction, name = 'category-name') => {
   const sql = `SELECT categoryName as name FROM role_categories rc
     JOIN role_systems rs ON rs.id=rc.roleSystemId
     JOIN guild_data gd ON gd.id=rs.guildDataId
-    WHERE gd.guildId=? AND categoryName LIKE CONCAT('%', ?, '%') LIMIT 25`;
-  const escapedVal = curValue.replaceAll(/([%_[])/g, '[$1]');
-  const matches = await dbQueryAll(sql, [interaction.guildId, escapedVal]);
+    WHERE gd.guildId=? AND LOCATE(?, categoryName) LIMIT 25`;
+  const matches = await dbQueryAll(sql, [interaction.guildId, curValue]);
 
   return interaction.respond(matches.map((category) => ({ name: category.name, value: category.name })));
 };

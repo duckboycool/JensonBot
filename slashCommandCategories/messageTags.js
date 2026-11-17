@@ -4,15 +4,14 @@ const { SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionFla
 const autocompleteTag = async (interaction) => {
   const curValue = interaction.options.getString('tag-name', true);
 
-  // Probably a better way to do this one as well
+  // Probably still a better way to do this search
   const sql = `SELECT DISTINCT tagName, tags.id FROM
     (SELECT tagName, tagName alias, id, guildDataId FROM message_tags UNION
      SELECT tagName, alias, tagId id, guildDataId FROM tag_aliases
      JOIN message_tags ON message_tags.id=tag_aliases.tagId) tags
     JOIN guild_data gd ON gd.id=guildDataId
-    WHERE guildId=? AND alias LIKE CONCAT('%', ?, '%') LIMIT 25`;
-  const escapedVal = curValue.replaceAll(/([%_[])/g, '[$1]');
-  const matches = await dbQueryAll(sql, [interaction.guildId, escapedVal]);
+    WHERE guildId=? AND LOCATE(?, alias) LIMIT 25`;
+  const matches = await dbQueryAll(sql, [interaction.guildId, curValue]);
 
   return interaction.respond(matches.map((tag) => ({ name: tag.tagName, value: tag.tagName })));
 };
@@ -285,10 +284,9 @@ module.exports = {
           return interaction.respond([]);
         }
 
-        const sql = `SELECT alias FROM tag_aliases WHERE tagId=? AND alias LIKE CONCAT('%', ?, '%') LIMIT 25`;
-        const escapedVal = field.value.replaceAll(/([%_[])/g, '[$1]');
+        const sql = `SELECT alias FROM tag_aliases WHERE tagId=? AND LOCATE(?, alias) LIMIT 25`;
+        const matches = await dbQueryAll(sql, [match.id, field.value]);
 
-        const matches = await dbQueryAll(sql, [match.id, escapedVal]);
         return interaction.respond(matches.map((match) => ({ name: match.alias, value: match.alias })));
       },
     },

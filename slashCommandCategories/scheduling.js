@@ -227,16 +227,14 @@ const buildDuration = (opt) => opt
 const autocompleteCode = async (interaction) => {
   const curValue = interaction.options.getString('event-code', true);
 
-  // Probably a better way to perform this search
   const sql = `SELECT eventCode
                FROM scheduled_events se
                JOIN guild_data gd ON se.guildDataId = gd.id
                WHERE gd.guildId=?
                  AND schedulingUserId=?
                  AND timestamp > ?
-                 AND eventCode LIKE CONCAT('%', ?, '%') LIMIT 25`;
-  const escapedVal = curValue.replaceAll(/([%_[])/g, '[$1]');
-  const matches = await dbQueryAll(sql, [interaction.guildId, interaction.user.id, Date.now(), escapedVal]);
+                 AND LOCATE(?, eventCode) LIMIT 25`;
+  const matches = await dbQueryAll(sql, [interaction.guildId, interaction.user.id, Date.now(), curValue]);
 
   return interaction.respond(matches.map((code) => ({ name: code.eventCode, value: code.eventCode })));
 };
