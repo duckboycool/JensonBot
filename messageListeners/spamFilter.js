@@ -1,25 +1,35 @@
 const { MessageMentions, PermissionFlagsBits, messageLink } = require('discord.js');
 const { dbQueryOne } = require('../lib.js');
 
-const period = 15_000; // ms window for meeting threshold
-const threshold = 12; // Number of points needed to activate
+const period = 16_000; // ms window for meeting threshold
+const purge_period = 180_000; // ms window to store/purge prior messages
+const threshold = 24; // Number of points needed to activate
 
 const spamPoints = (messageList) => {
   const channelIds = new Set(messageList.map((message) => message.channelId));
-  
-  // Add up number of attachments in a message in each channel, but cap at 2
-  let attachmentPoints = 0;
-  for (const channelId of channelIds) {
-    const highest = Math.max(...messageList.filter((m) => m.channelId === channelId).map((m) => m.attachments.size));
 
-    attachmentPoints += Math.min(highest, 2);
+  let points = 3 * channelIds.size;
+  for (const channelId of channelIds) {
+    // Add up number of attachments in a message in each channel, but cap at 3
+    const channelMessages = messageList.filter((m) => m.channelId === channelId);
+    const highest = Math.max(...channelMessages.map((m) => m.attachments.size));
+    points += Math.min(highest, 3);
+
+    // Add extra points for attempted role/everyone pings
+    if (channelMessages.find((m) => m.content.search(MessageMentions.EveryonePattern) !== -1
+      || m.content.search(MessageMentions.RolesPattern) !== -1)) {
+      points += 2;
+    }
+
+    // Add extra points for links, with an additional one for discord invites
+    if (channelMessages.find((m) => m.content.search(/discord\.gg\/\S/) !== -1)) {
+      points += 3;
+    } else if (channelMessages.find((m) => m.content.search(/https?:\/\/\S/) !== -1)) {
+      points += 2;
+    }
   };
 
-  // Add constant extra points if any message tries to ping everyone/a role
-  const pings = !!messageList.find((m) => m.content.search(MessageMentions.EveryonePattern) !== -1
-    || m.content.search(MessageMentions.RolesPattern) !== -1);
-
-  return channelIds.size + attachmentPoints + 2 * pings;
+  return points;
 };
 
 module.exports = async (client, message) => {
@@ -39,10 +49,11 @@ module.exports = async (client, message) => {
     return;
   }
 
-  recent = recent.filter((old) => message.createdTimestamp < old.createdTimestamp + period);
+  recent = recent.filter((old) => message.createdTimestamp < old.createdTimestamp + purge_period);
   recent.push(message);
 
-  const points = spamPoints(recent);
+  const spamTest = recent.filter((old) => message.createdTimestamp < old.createdTimestamp + period)
+  const points = spamPoints(spamTest);
   if (points >= threshold) {
     let sql = `SELECT go.id, go.alertsChannelId, go.spamPurge
                FROM guild_options go
@@ -53,7 +64,7 @@ module.exports = async (client, message) => {
     client.purgeTimes.set(message.author.id, message.createdTimestamp);
 
     if (options.spamPurge) {
-      await message.member.timeout(60 * 60 * 1000, `Hit spam filter with ${recent.length} messages.`);
+      await message.member.timeout(60 * 60 * 1000, `Hit spam filter with ${spamTest.length} messages.`);
 
       // Have to delete messages one channel at a time
       const sent = new Set(recent.map((message) => message.channel));
@@ -75,12 +86,12 @@ module.exports = async (client, message) => {
     }
     const alertsChannel = await message.guild.channels.fetch(options.alertsChannelId);
 
-    const timestamps = recent.map((msg) => msg.createdTimestamp);
+    const timestamps = spamTest.map((msg) => msg.createdTimestamp);
     // Keep 1 decimal point while dividing ms by 1000
     const duration = Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 100) / 10;
 
-    let content = `Found ${message.author} for spam detection. ` +
-      `Hit ${points} "spam points" in ${recent.length} messages (in ${duration} seconds).\n\n`;
+    let content = `Found ${message.author} for spam detection. Hit ${points}/${threshold} "spam points" ` +
+      `in ${spamTest.length} messages (in ${duration}/${period/1000} seconds).\n\n`;
 
     if (!options.spamPurge) {
       content += 'Would have deleted the following messages:';
@@ -96,7 +107,7 @@ module.exports = async (client, message) => {
   } else {
     // Not really an optimal solution, but re-fetching should help with dropping messages
     let nowRecent = client.recentMessages.get(message.author.id);
-    nowRecent = nowRecent.filter((old) => message.createdTimestamp < old.createdTimestamp + period);
+    nowRecent = nowRecent.filter((old) => message.createdTimestamp < old.createdTimestamp + purge_period);
     nowRecent.push(message);
     client.recentMessages.set(message.author.id, nowRecent);
   }
