@@ -5,7 +5,7 @@ module.exports = async (client, message) => {
   // Preprocess string to remove code blocks
   // This detection is definitely not perfect, but hopefully it'll be enough to suffice in practice
   // If not, the best option would probably be to bring in a discord markdown parsing lib
-  const searchContent = message.content.replaceAll(/(?<!\\)(?:(`{1,2}).*?[^`]\1(?!`)|```.+?```)/gs, '');
+  const searchContent = message.content.replaceAll(/(?<!\\)(?:```.+?```|(`{1,2}).*?[^`]\1(?!`))/gs, '');
   // Extract and deduplicate tags present
   const messageTags = new Set(searchContent.match(/(?<=\B&)\w+/g));
 
