@@ -298,11 +298,23 @@ module.exports = {
         .setContexts(InteractionContextType.Guild),
       async execute(interaction) {
         // Fetch guild tags
-        let sql = `SELECT mt.tagName
+        let sql = `SELECT mt.tagName, mt.id
                    FROM message_tags mt
                    JOIN guild_data gd ON mt.guildDataId = gd.id
                    WHERE gd.guildId=?`;
         const tags = await dbQueryAll(sql, [interaction.guildId]);
+
+        const aliasList = await dbQueryAll('SELECT alias, tagId FROM tag_aliases');
+        const aliasMap = new Map();
+        for (const alias of aliasList) {
+          // Too bad getOrInsert doesn't exist here
+          let tagAliases = aliasMap.get(alias.tagId);
+          if (tagAliases == null) {
+            tagAliases = [];
+            aliasMap.set(alias.tagId, tagAliases);
+          }
+          tagAliases.push(alias.alias);
+        }
 
         // If there are no tags available for this guild, inform the user
         if (tags.length === 0) {
@@ -311,7 +323,14 @@ module.exports = {
 
         // Build a string containing all the tag names surrounded by backticks
         let tagString = '';
-        tags.forEach((tag) => tagString += `\`${tag.tagName}\`, `);
+        for (const tag of tags) {
+          tagString += `\`${tag.tagName}\``;
+          const aliases = aliasMap.get(tag.id);
+          if (aliases?.length > 0) {
+            tagString += ` (alias${aliases.length > 1 ? 'es' : ''}: \`${aliases.join('`, `')}\`)`
+          }
+          tagString += ', ';
+        }
         tagString = tagString.slice(0, -2);
         tagString = `The following tags are available on this server:\n${tagString}`;
 
