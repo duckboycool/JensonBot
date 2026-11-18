@@ -87,12 +87,11 @@ const modContactChannels = `CREATE TABLE IF NOT EXISTS mod_contact_channels (
 
 const messageTags = `CREATE TABLE IF NOT EXISTS message_tags (
     id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    guildDataId BIGINT NOT NULL,
-    tagName VARCHAR(${tagNameMaxLen}) NOT NULL,
+    tagName VARCHAR(${tagNameMaxLen}) NOT NULL UNIQUE KEY,
     tagContent TEXT(${tagContentMaxLen}) NOT NULL,
     createdByUserId VARCHAR(64) NOT NULL,
     createdTime BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP()),
-    UNIQUE KEY guildDataId (guildDataId, tagName)
+    visibilityType TINYINT(1) NOT NULL DEFAULT -1, -- global=-1, regular=0, nsfw=1
 )`;
 
 const tagAliases = `CREATE TABLE IF NOT EXISTS tag_aliases (

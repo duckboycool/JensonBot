@@ -1,3 +1,4 @@
+const { GuildNSFWLevel } = require ('discord.js');
 const { dbQueryOne } = require('../lib');
 const msCooldown = 10_000; // Per tag, and per channel
 
@@ -12,16 +13,16 @@ module.exports = async (client, message) => {
   // If there are no tags in this message, do nothing
   if (messageTags.size === 0) { return; }
 
+  const guildType = Number(message.guild.nsfwLevel === GuildNSFWLevel.AgeRestricted);
+
   // Send each tag message to the channel in a separate message, in order of message
   for (let tag of messageTags) {
     // Fetch the tag message from the database
     let sql = `SELECT DISTINCT mt.id, mt.tagContent
                FROM message_tags mt
                LEFT JOIN tag_aliases alias ON mt.id=alias.tagId
-               JOIN guild_data gd ON mt.guildDataId = gd.id
-               WHERE gd.guildId=?
-                  AND ? IN (mt.tagName, alias)`;
-    const row = await dbQueryOne(sql, [message.guild.id, tag]);
+               WHERE ? IN (tagName, alias) AND (visibilityType = -1 OR visibilityType = ?)`;
+    const row = await dbQueryOne(sql, [tag, guildType]);
 
     if (row != null) {
       // Cooldown also deduplicates different casing/aliases in a single message

@@ -1,17 +1,16 @@
-const { dbQueryOne, dbQueryAll, dbExecute, replyError, tagNameMaxLen, tagContentMaxLen } = require('../lib');
-const { SlashCommandBuilder, InteractionContextType, MessageFlags, PermissionFlagsBits } = require('discord.js');
+const { dbQueryOne, dbQueryAll, dbExecute, tagNameMaxLen, tagContentMaxLen } = require('../lib');
+const { SlashCommandBuilder, GuildNSFWLevel, InteractionContextType, MessageFlags,
+  PermissionFlagsBits } = require('discord.js');
 
 const autocompleteTag = async (interaction) => {
   const curValue = interaction.options.getString('tag-name', true);
 
-  // Probably still a better way to do this search
   const sql = `SELECT DISTINCT tagName, tags.id FROM
-    (SELECT tagName, tagName alias, id, guildDataId FROM message_tags UNION
-     SELECT tagName, alias, tagId id, guildDataId FROM tag_aliases
+    (SELECT tagName, tagName alias, id, visibilityType FROM message_tags UNION
+     SELECT tagName, alias, tagId id, visibilityType FROM tag_aliases
      JOIN message_tags ON message_tags.id=tag_aliases.tagId) tags
-    JOIN guild_data gd ON gd.id=guildDataId
-    WHERE guildId=? AND LOCATE(?, alias) LIMIT 25`;
-  const matches = await dbQueryAll(sql, [interaction.guildId, curValue]);
+    WHERE LOCATE(?, alias) LIMIT 25`;
+  const matches = await dbQueryAll(sql, [curValue]);
 
   return interaction.respond(matches.map((tag) => ({ name: tag.tagName, value: tag.tagName })));
 };
@@ -20,27 +19,36 @@ module.exports = {
   category: 'Message Tags',
   commands: [
     {
-      longDescription: 'Add or update a tag for a server. If a user includes this tag in any part of ' +
+      longDescription: 'Add or update a message tag. If a user includes this tag in any part of ' +
         'a message, the bot will respond with the content of this tag. Tags may contain only letters, ' +
         'numbers, and underscores.',
       commandBuilder: new SlashCommandBuilder()
         .setName('tag-add')
-        .setDescription('Add or update a tag for this server.')
+        .setDescription('Add or update a message tag.')
         .addStringOption((opt) => opt
           .setName('tag-name')
           .setDescription('The tag to respond to')
           .setMaxLength(tagNameMaxLen)
-          .setRequired(true))
+          .setRequired(true)
+          .setAutocomplete(true))
         .addStringOption((opt) => opt
           .setName('content')
           .setDescription('The text which will be displayed when a tag is found in a message')
-          .setMaxLength(tagContentMaxLen)
-          .setRequired(true))
+          .setMaxLength(tagContentMaxLen))
+        .addIntegerOption((opt) => opt
+          .setName('visibility')
+          .setDescription('Sets/updates where the tag is available to be used. Defaults to global')
+          .addChoices(
+            { name: 'Global', value: -1 },
+            { name: 'Main-Only', value: 0 },
+            { name: 'AD-Only', value: 1 },
+          ))
         .setContexts(InteractionContextType.Guild)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
       async execute(interaction) {
         const tagName = interaction.options.getString('tag-name').toLowerCase();
-        const content = interaction.options.getString('content');
+        const content = interaction.options.getString('content', false) ?? null;
+        const visibility = interaction.options.getInteger('visibility', false) ?? null;
 
         // Tags may contain only alphanumeric characters
         if (tagName.search(/\W/) > -1) {
@@ -50,19 +58,8 @@ module.exports = {
           });
         }
 
-        // Fetch guildDataId
-        const guildData = await dbQueryOne('SELECT id FROM guild_data WHERE guildId=?', [interaction.guildId]);
-        if (!guildData) {
-          return interaction.reply({
-            content: replyError('Uh-oh. Something is weird in my database.\n' + 
-              `\`\`\`guild data is missing for guild with id ${interaction.guildId}\`\`\`\n`),
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
-        let sql = `SELECT tagName FROM tag_aliases alias JOIN message_tags tag ON alias.tagId=tag.id
-                   WHERE guildDataId=? AND alias=?`;
-        const existingAlias = await dbQueryOne(sql, [guildData.id, tagName]);
+        let sql = 'SELECT tagName FROM tag_aliases alias JOIN message_tags tag ON alias.tagId=tag.id WHERE alias=?';
+        const existingAlias = await dbQueryOne(sql, [tagName]);
         if (existingAlias) {
           return interaction.reply({
             content: `The \`${existingAlias.tagName}\` tag already has \`${tagName}\` as an alias.`,
@@ -70,21 +67,44 @@ module.exports = {
           });
         }
 
-        // Save new tag to database
-        sql = `INSERT message_tags (guildDataId, tagName, tagContent, createdByUserId) VALUES (?, ?, ?, ?)
-               ON DUPLICATE KEY UPDATE tagContent = VALUES(tagContent), createdByUserId = VALUES(createdByUserId)`;
-        await dbExecute(sql, [guildData.id, tagName, content, interaction.user.id]);
+        const existingTag = await dbQueryOne('SELECT id FROM message_tags WHERE tagName=?', [tagName]);
 
-        return interaction.reply({
-          content: `Set content for tag \`${tagName}\`.`,
-          flags: MessageFlags.Ephemeral,
-        });
+        if (!existingTag) {
+          if (!content) {
+            return interaction.reply({
+              content: 'Must give tag content when adding a new tag.',
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+
+          // Save new tag to database
+          sql = 'INSERT message_tags (tagName, tagContent, createdByUserId, visibilityType) VALUES (?, ?, ?, ?)';
+          await dbExecute(sql, [tagName, content, interaction.user.id, visibility]);
+
+          return interaction.reply({
+            content: `Created new tag \`${tagName}\`.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        } else {
+          sql = `UPDATE message_tags SET
+                   tagContent = COALESCE(?, tagContent),
+                   createdByUserId = ?,
+                   visibilityType = COALESCE(?, visibilityType)
+                 WHERE id=?`;
+          await dbExecute(sql, [content, interaction.user.id, visibility, existingTag.id]);
+
+          return interaction.reply({
+            content: `Updated \`${tagName}\` tag.`,
+            flags: MessageFlags.Ephemeral,
+          });
+        }
       },
+      autocomplete: autocompleteTag
     },
     {
       commandBuilder: new SlashCommandBuilder()
         .setName('tag-delete')
-        .setDescription('Remove a &tag from a server.')
+        .setDescription('Remove a message &tag.')
         .addStringOption((opt) => opt
           .setName('tag-name')
           .setDescription('Name of the tag to be removed')
@@ -96,26 +116,11 @@ module.exports = {
       async execute(interaction) {
         const tagName = interaction.options.getString('tag-name').toLowerCase();
 
-        // Fetch guildDataId
-        const guildData = await dbQueryOne('SELECT id FROM guild_data WHERE guildId=?', [interaction.guildId]);
-        if (!guildData) {
-          return interaction.reply({
-            content: replyError('Uh-oh. Something is weird in my database.\n' + 
-              `\`\`\`guild data is missing for guild with id ${interaction.guildId}\`\`\`\n`),
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
         // If the tag does not exist, inform the user
-        let sql = `SELECT mt.id
-                   FROM message_tags mt
-                   JOIN guild_data gd ON mt.guildDataId = gd.id
-                   WHERE gd.guildId=?
-                    AND mt.tagName=?`;
-        const existing = await dbQueryOne(sql, [interaction.guildId, tagName]);
+        const existing = await dbQueryOne('SELECT id FROM message_tags WHERE tagName=?', [tagName]);
         if (!existing) {
           return interaction.reply({
-            content: 'That tag does not exist on this server.',
+            content: `The \`${tagName}\` tag does not exist.`,
             flags: MessageFlags.Ephemeral,
           });
         }
@@ -134,7 +139,7 @@ module.exports = {
     {
       commandBuilder: new SlashCommandBuilder()
         .setName('tag-alias')
-        .setDescription('Add an alias to an existing tag in this server.')
+        .setDescription('Add an alias to an existing &tag.')
         .addStringOption((opt) => opt
           .setName('tag-name')
           .setDescription('The tag to add an alias to')
@@ -160,19 +165,7 @@ module.exports = {
           });
         }
 
-        // Fetch guildDataId
-        const guildData = await dbQueryOne('SELECT id FROM guild_data WHERE guildId=?', [interaction.guildId]);
-        if (!guildData) {
-          return interaction.reply({
-            content: replyError('Uh-oh. Something is weird in my database.\n' + 
-              `\`\`\`guild data is missing for guild with id ${interaction.guildId}\`\`\`\n`),
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
-        const tagId = await dbQueryOne(
-          'SELECT id FROM message_tags WHERE guildDataId=? AND tagName=?', [guildData.id, tagName]
-        );
+        const tagId = await dbQueryOne('SELECT id FROM message_tags WHERE tagName=?', [tagName]);
         if (!tagId) {
           return interaction.reply({
             content: `Could not find tag \`${tagName}\`.`,
@@ -180,9 +173,7 @@ module.exports = {
           });
         }
 
-        const existingTag = await dbQueryOne(
-          'SELECT 1 FROM message_tags WHERE guildDataId=? AND tagName=?', [guildData.id, alias]
-        );
+        const existingTag = await dbQueryOne('SELECT 1 FROM message_tags WHERE tagName=?', [alias]);
         if (existingTag) {
           return interaction.reply({
             content: `There is already a \`${alias}\` tag.`,
@@ -190,9 +181,8 @@ module.exports = {
           });
         }
 
-        const sql = `SELECT tagName FROM tag_aliases alias JOIN message_tags tag ON alias.tagId=tag.id
-                     WHERE guildDataId=? AND alias=?`;
-        const existingAlias = await dbQueryOne(sql, [guildData.id, alias]);
+        const sql = `SELECT tagName FROM tag_aliases alias JOIN message_tags tag ON alias.tagId=tag.id WHERE alias=?`;
+        const existingAlias = await dbQueryOne(sql, [alias]);
         if (existingAlias) {
           return interaction.reply({
             content: `The \`${existingAlias.tagName}\` tag already has \`${alias}\` as an alias.`,
@@ -213,7 +203,7 @@ module.exports = {
     {
       commandBuilder: new SlashCommandBuilder()
         .setName('tag-unalias')
-        .setDescription('Remove an existing alias for a tag in this server.')
+        .setDescription('Remove an existing alias for a &tag.')
         .addStringOption((opt) => opt
           .setName('tag-name')
           .setDescription('The tag to remove an alias from')
@@ -232,19 +222,7 @@ module.exports = {
         const tagName = interaction.options.getString('tag-name').toLowerCase();
         const alias = interaction.options.getString('alias').toLowerCase();
 
-        // Fetch guildDataId
-        const guildData = await dbQueryOne('SELECT id FROM guild_data WHERE guildId=?', [interaction.guildId]);
-        if (!guildData) {
-          return interaction.reply({
-            content: replyError('Uh-oh. Something is weird in my database.\n' + 
-              `\`\`\`guild data is missing for guild with id ${interaction.guildId}\`\`\`\n`),
-            flags: MessageFlags.Ephemeral,
-          });
-        }
-
-        const tagId = await dbQueryOne(
-          'SELECT id FROM message_tags WHERE guildDataId=? AND tagName=?', [guildData.id, tagName]
-        );
+        const tagId = await dbQueryOne('SELECT id FROM message_tags WHERE tagName=?', [tagName]);
         if (!tagId) {
           return interaction.reply({
             content: `Could not find tag \`${tagName}\`.`,
@@ -297,12 +275,12 @@ module.exports = {
         .setDescription('List all &tags available on this server.')
         .setContexts(InteractionContextType.Guild),
       async execute(interaction) {
-        // Fetch guild tags
-        let sql = `SELECT mt.tagName, mt.id
-                   FROM message_tags mt
-                   JOIN guild_data gd ON mt.guildDataId = gd.id
-                   WHERE gd.guildId=?`;
-        const tags = await dbQueryAll(sql, [interaction.guildId]);
+        // Fetch tags usable in guild
+        const guildType = Number(interaction.guild.nsfwLevel === GuildNSFWLevel.AgeRestricted);
+        let sql = `SELECT tagName, id FROM message_tags
+                   WHERE visibilityType = -1 OR visibilityType = ?
+                   ORDER BY tagName`;
+        const tags = await dbQueryAll(sql, [guildType]);
 
         const aliasList = await dbQueryAll('SELECT alias, tagId FROM tag_aliases');
         const aliasMap = new Map();
