@@ -1,17 +1,21 @@
-const { SlashCommandBuilder, InteractionContextType, PermissionFlagsBits, MessageFlags, EmbedBuilder,
+const { SlashCommandBuilder, GuildNSFWLevel, InteractionContextType, PermissionFlagsBits, MessageFlags, EmbedBuilder,
   escapeMarkdown } = require('discord.js');
 const { dbExecute, dbQueryAll, dbQueryOne, verifyModRole, worldNameMaxLen, releaseLinkMaxLen } = require('../lib');
 
-const autocompleteWorld = async (interaction) => {
+const autocompleteWorld = async (interaction, showAll = true) => {
   const curValue = interaction.options.getString('world', true);
   if (!curValue) {
     return interaction.respond([]);
   }
 
+  if (interaction.guild.nsfwLevel === GuildNSFWLevel.AgeRestricted) {
+    showAll = true;
+  }
+
   const sql = `SELECT DISTINCT worldName FROM apworld_info info
     LEFT JOIN apworld_aliases aliases ON info.id=aliases.worldId
-    WHERE LOCATE(?, worldName) OR LOCATE(?, alias) LIMIT 25`;
-  const matches = await dbQueryAll(sql, [curValue, curValue]);
+    WHERE (LOCATE(?, worldName) OR LOCATE(?, alias)) AND (? OR info.adOnly=0) LIMIT 25`;
+  const matches = await dbQueryAll(sql, [curValue, curValue, showAll]);
 
   return interaction.respond(matches.map((world) => ({ name: world.worldName, value: world.worldName })));
 };
@@ -32,7 +36,11 @@ module.exports = {
         .setContexts(InteractionContextType.Guild),
       async execute(interaction) {
         const search = interaction.options.getString('world', true);
-        const match = await dbQueryOne('SELECT * FROM apworld_info WHERE worldName=?', [search]);
+
+        const allowAd = interaction.guild.nsfwLevel === GuildNSFWLevel.AgeRestricted;
+        const match = await dbQueryOne(
+          'SELECT * FROM apworld_info WHERE worldName=? AND (? OR adOnly=0)', [search, allowAd]
+        );
 
         if (!match) {
           return interaction.reply({
@@ -56,7 +64,7 @@ module.exports = {
           embeds: [embed],
         });
       },
-      autocomplete: autocompleteWorld
+      autocomplete: async (interaction) => await autocompleteWorld(interaction, showAll = false)
     },
     {
       commandBuilder: new SlashCommandBuilder()
@@ -77,6 +85,10 @@ module.exports = {
           .setDescription('Link to the world\'s release, or text describing why one is unavailable')
           .setMaxLength(releaseLinkMaxLen)
           .setRequired(false))
+        .addBooleanOption((opt) => opt
+          .setName('after-dark')
+          .setDescription('Sets world as AD, meaning it will only show up in an age-restricted server. Defaults to false')
+        )
         .addStringOption((opt) => opt
           .setName('channel-id')
           .setDescription('Direct id input for channel, needed for channel outside current server')
@@ -98,15 +110,17 @@ module.exports = {
           if (/^\d+$/.test(idInput)) channelId = idInput;
         }
         let releaseLink = interaction.options.getString('release');
+        let adOnly = interaction.options.getBoolean('after-dark');
 
         const match = await dbQueryOne('SELECT * FROM apworld_info WHERE worldName=?', [newName]);
 
         if (match) {
           if (!channelId) channelId = match.channelId;
           if (!releaseLink) releaseLink = match.releaseLink;
+          if (!adOnly) adOnly = match.adOnly;
 
-          const sql = 'UPDATE apworld_info SET worldName=?, releaseLink=?, channelId=? WHERE id=?';
-          dbExecute(sql, [newName, releaseLink, channelId, match.id]);
+          const sql = 'UPDATE apworld_info SET worldName=?, releaseLink=?, channelId=?, adOnly=? WHERE id=?';
+          dbExecute(sql, [newName, releaseLink, channelId, adOnly, match.id]);
 
           return interaction.reply({
             content: `Edited \`${newName.replaceAll('`', '')}\` world entry.`,
@@ -120,8 +134,8 @@ module.exports = {
             });
           }
 
-          const sql = 'INSERT INTO apworld_info (worldName, releaseLink, channelId) VALUES (?, ?, ?)';
-          dbExecute(sql, [newName, releaseLink, channelId]);
+          const sql = 'INSERT INTO apworld_info (worldName, releaseLink, channelId, adOnly) VALUES (?, ?, ?, ?)';
+          dbExecute(sql, [newName, releaseLink, channelId, adOnly ?? false]);
 
           return interaction.reply({
             content: `Added new world entry for \`${newName.replaceAll('`', '')}\`.`,

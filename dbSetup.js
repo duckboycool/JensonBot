@@ -149,6 +149,7 @@ const apworldInfo = `CREATE TABLE IF NOT EXISTS apworld_info (
     id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     worldName VARCHAR(${worldNameMaxLen}) NOT NULL,
     releaseLink VARCHAR(${releaseLinkMaxLen}) NOT NULL,
+    adOnly TINYINT(1) NOT NULL DEFAULT 0,
     channelId VARCHAR(64) NOT NULL
 )`;
 
