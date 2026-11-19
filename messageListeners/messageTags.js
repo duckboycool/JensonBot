@@ -30,11 +30,11 @@ module.exports = async (client, message) => {
       if (lastTimestamp == null || message.createdTimestamp > lastTimestamp + msCooldown) {
         let content = row.tagContent;
         if (guildType === 0) {
-          content = content.replaceAll(/{{adonly\|.+?}}/g, '');
-          content = content.replaceAll(/{{mainonly\|(.+?)}}/g, '$1');
+          content = content.replaceAll(/{{adonly\|.+?}}/gs, '');
+          content = content.replaceAll(/{{mainonly\|(.+?)}}/gs, '$1');
         } else if (guildType === 1) {
-          content = content.replaceAll(/{{mainonly\|.+?}}/g, '');
-          content = content.replaceAll(/{{adonly\|(.+?)}}/g, '$1');
+          content = content.replaceAll(/{{mainonly\|.+?}}/gs, '');
+          content = content.replaceAll(/{{adonly\|(.+?)}}/gs, '$1');
         }
         await message.channel.send(content);
         client.lastTagUse.set(`${row.id};${message.channelId}`, message.createdTimestamp);
