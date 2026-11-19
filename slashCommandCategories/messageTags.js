@@ -1,6 +1,7 @@
 const { dbQueryOne, dbQueryAll, dbExecute, tagNameMaxLen, tagContentMaxLen } = require('../lib');
-const { SlashCommandBuilder, GuildNSFWLevel, InteractionContextType, MessageFlags,
-  PermissionFlagsBits } = require('discord.js');
+const { ModalBuilder, LabelBuilder, SlashCommandBuilder, TextInputBuilder, StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder, GuildNSFWLevel, InteractionContextType, MessageFlags, PermissionFlagsBits,
+  TextInputStyle } = require('discord.js');
 
 const autocompleteTag = async (interaction) => {
   const curValue = interaction.options.getString('tag-name', true);
@@ -23,81 +24,89 @@ module.exports = {
         'a message, the bot will respond with the content of this tag. Tags may contain only letters, ' +
         'numbers, and underscores.',
       commandBuilder: new SlashCommandBuilder()
-        .setName('tag-add')
-        .setDescription('Add or update a message tag.')
+        .setName('tag-edit')
+        .setDescription('Update a message tag, or create a new one if not present.')
         .addStringOption((opt) => opt
           .setName('tag-name')
-          .setDescription('The tag to respond to')
+          .setDescription('The tag to create/edit')
           .setMaxLength(tagNameMaxLen)
           .setRequired(true)
           .setAutocomplete(true))
-        .addStringOption((opt) => opt
-          .setName('content')
-          .setDescription('The text which will be displayed when a tag is found in a message')
-          .setMaxLength(tagContentMaxLen))
-        .addIntegerOption((opt) => opt
-          .setName('visibility')
-          .setDescription('Sets/updates where the tag is available to be used. Defaults to global')
-          .addChoices(
-            { name: 'Global', value: -1 },
-            { name: 'Main-Only', value: 0 },
-            { name: 'AD-Only', value: 1 },
-          ))
         .setContexts(InteractionContextType.Guild)
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
       async execute(interaction) {
         const tagName = interaction.options.getString('tag-name').toLowerCase();
-        const content = interaction.options.getString('content', false) ?? null;
-        const visibility = interaction.options.getInteger('visibility', false) ?? null;
-
-        // Tags may contain only alphanumeric characters
-        if (tagName.search(/\W/) > -1) {
-          return interaction.reply({
-            content: 'Tag names may contain only letters, numbers, and underscores.',
-            flags: MessageFlags.Ephemeral,
-          });
+        if (!await module.exports.validateTagName(interaction, tagName)) {
+          return;
         }
 
-        let sql = 'SELECT tagName FROM tag_aliases alias JOIN message_tags tag ON alias.tagId=tag.id WHERE alias=?';
-        const existingAlias = await dbQueryOne(sql, [tagName]);
-        if (existingAlias) {
-          return interaction.reply({
-            content: `The \`${existingAlias.tagName}\` tag already has \`${tagName}\` as an alias.`,
-            flags: MessageFlags.Ephemeral,
-          });
+        sql = 'SELECT id, tagContent, visibilityType FROM message_tags WHERE tagName=?';
+        const existingTag = await dbQueryOne(sql, [tagName]);
+
+        const editModal = new ModalBuilder()
+          .setCustomId(`tagEdit-${tagName}`)
+          .setTitle(`${existingTag ? 'Edit' : 'Add'} &${tagName} Tag`);
+
+        const editBox = new TextInputBuilder()
+          .setCustomId('tagInput')
+          .setRequired(true)
+          .setStyle(TextInputStyle.Paragraph)
+          .setMinLength(1)
+          .setMaxLength(tagContentMaxLen)
+          .setPlaceholder('Edit tag content...');
+
+        const contentLabel = new LabelBuilder()
+          .setLabel('Tag Content')
+          .setTextInputComponent(editBox)
+          .setDescription('You can use the templates {{mainonly|...}} or {{adonly|...}} for server-specific text.');
+
+        const visibilitySelect = new StringSelectMenuBuilder()
+          .setCustomId('visibility')
+          .setRequired(true)
+          .addOptions(
+            new StringSelectMenuOptionBuilder()
+              .setLabel('Global')
+              .setDescription('Can be used in any server.')
+              .setValue('global')
+              .setDefault(!existingTag?.visibilityType == null || existingTag?.visibilityType === -1),
+            new StringSelectMenuOptionBuilder()
+              .setLabel('Main-Only')
+              .setDescription('Can only be used in servers that are not age-restricted.')
+              .setValue('main-only')
+              .setDefault(existingTag?.visibilityType === 0),
+            new StringSelectMenuOptionBuilder()
+              .setLabel('AD-Only')
+              .setDescription('Can only be used in servers that are age-restricted.')
+              .setValue('ad-only')
+              .setDefault(existingTag?.visibilityType === 1),
+          );
+
+        const visibilityLabel = new LabelBuilder()
+          .setLabel('Visibility')
+          .setStringSelectMenuComponent(visibilitySelect);
+          
+        editModal.addLabelComponents(contentLabel, visibilityLabel);
+
+        if (existingTag) {
+          editBox.setValue(existingTag.tagContent);
+
+          const renameInput = new TextInputBuilder()
+            .setCustomId('tagRenameInput')
+            .setRequired(false)
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(1)
+            .setMaxLength(tagNameMaxLen)
+            .setPlaceholder('New tag name...');
+
+          const renameLabel = new LabelBuilder()
+            .setLabel('New Tag Name')
+            .setTextInputComponent(renameInput)
+            .setDescription('Enter new tag name, or leave empty to keep current name.');
+
+          editModal.addLabelComponents(renameLabel);
         }
 
-        const existingTag = await dbQueryOne('SELECT id FROM message_tags WHERE tagName=?', [tagName]);
-
-        if (!existingTag) {
-          if (!content) {
-            return interaction.reply({
-              content: 'Must give tag content when adding a new tag.',
-              flags: MessageFlags.Ephemeral,
-            });
-          }
-
-          // Save new tag to database
-          sql = 'INSERT message_tags (tagName, tagContent, createdByUserId, visibilityType) VALUES (?, ?, ?, ?)';
-          await dbExecute(sql, [tagName, content, interaction.user.id, visibility ?? -1]);
-
-          return interaction.reply({
-            content: `Created new tag \`${tagName}\`.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        } else {
-          sql = `UPDATE message_tags SET
-                   tagContent = COALESCE(?, tagContent),
-                   createdByUserId = ?,
-                   visibilityType = COALESCE(?, visibilityType)
-                 WHERE id=?`;
-          await dbExecute(sql, [content, interaction.user.id, visibility, existingTag.id]);
-
-          return interaction.reply({
-            content: `Updated \`${tagName}\` tag.`,
-            flags: MessageFlags.Ephemeral,
-          });
-        }
+        return interaction.showModal(editModal);
       },
       autocomplete: autocompleteTag
     },
@@ -321,4 +330,27 @@ module.exports = {
       }
     }
   ],
+
+  validateTagName: async (interaction, tagName) => {
+    // Tags may contain only alphanumeric characters
+    if (tagName.search(/\W/) > -1) {
+      interaction.reply({
+        content: 'Tag names may contain only letters, numbers, and underscores.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return false;
+    }
+
+    const sql = 'SELECT tagName FROM tag_aliases alias JOIN message_tags tag ON alias.tagId=tag.id WHERE alias=?';
+    const existingAlias = await dbQueryOne(sql, [tagName]);
+    if (existingAlias) {
+      interaction.reply({
+        content: `The \`${existingAlias.tagName}\` tag already has \`${tagName}\` as an alias.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return false;
+    }
+
+    return true;
+  }
 };

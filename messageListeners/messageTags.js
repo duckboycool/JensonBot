@@ -28,7 +28,15 @@ module.exports = async (client, message) => {
       // Cooldown also deduplicates different casing/aliases in a single message
       const lastTimestamp = client.lastTagUse.get(`${row.id};${message.channelId}`);
       if (lastTimestamp == null || message.createdTimestamp > lastTimestamp + msCooldown) {
-        await message.channel.send(row.tagContent);
+        let content = row.tagContent;
+        if (guildType === 0) {
+          content = content.replaceAll(/{{adonly\|.+?}}/g, '');
+          content = content.replaceAll(/{{mainonly\|(.+?)}}/g, '$1');
+        } else if (guildType === 1) {
+          content = content.replaceAll(/{{mainonly\|.+?}}/g, '');
+          content = content.replaceAll(/{{adonly\|(.+?)}}/g, '$1');
+        }
+        await message.channel.send(content);
         client.lastTagUse.set(`${row.id};${message.channelId}`, message.createdTimestamp);
       }
     }
