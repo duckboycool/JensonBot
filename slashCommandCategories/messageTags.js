@@ -79,7 +79,7 @@ module.exports = {
 
           // Save new tag to database
           sql = 'INSERT message_tags (tagName, tagContent, createdByUserId, visibilityType) VALUES (?, ?, ?, ?)';
-          await dbExecute(sql, [tagName, content, interaction.user.id, visibility]);
+          await dbExecute(sql, [tagName, content, interaction.user.id, visibility ?? -1]);
 
           return interaction.reply({
             content: `Created new tag \`${tagName}\`.`,
